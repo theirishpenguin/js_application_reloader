@@ -122,10 +122,19 @@ MVC framework you are using.
 
 In BackboneJS you would insert this into the application's startup code, for example in application.js file. The only requirement is that Backbone is initialised.
 
-    // -- Override Backbone sync() to handle expiration
+    // -- Override Backbone sync() to handle expiration on success or error
     // -- Do the equivalent for your chosen framework
     var oldSyncMethod = Backbone.sync;
     Backbone.sync = function(method, model, options) {
+        var oldSuccess = options.success;                                 
+        options.success = function(data, textStatus, xhr) {               
+            if (JsApplicationReloader.isTokenExpired(xhr)) {              
+                return JsApplicationReloader.handleTokenExpiration(xhr);    
+            } else if (oldSuccess) {                                      
+                oldSuccess(data, textStatus, xhr);                        
+            }                                                                                                    
+        };    
+
         var oldError = options.error;
         options.error = function(xhr, textStatus, errorThrown) {
             // These are the important 3 lines
@@ -183,7 +192,17 @@ You can skip the before filter that JsApplicationReloader uses via
     # The reload_required_http_status, application_name, redirect_url attributes
     # are available to you on the JsApplicationReloader object.
     def render_js_application_reloader_expiration
-      render :text => "A new version of #{JsApplicationReloader.application_name} is available. Please click <a href='#{JsApplicationReloader.redirect_url}'>here</a> to load it.", :status => JsApplicationReloader.reload_required_http_status
+      message = "A new version of #{JsApplicationReloader.application_name} is available. " +
+            "Please click <a href='#{JsApplicationReloader.redirect_url}'>here</a> to load it."
+
+      respond_to do |format|
+        format.html {
+          render :text => message, :status => JsApplicationReloader.reload_required_http_status
+        }
+        format.json {
+          render :json => {:message => message}, :status => JsApplicationReloader.reload_required_http_status
+        }
+      end
     end
 
 ## Override how the client handles the reloading of the application
@@ -193,8 +212,13 @@ config/initializers/js_application_reloader.rb (outside of the 'config' block).
     def JsApplicationReloader.handle_reloader_token_expiration_on_client
       <<-EOF
           JsApplicationReloader.handleTokenExpiration = function(xhr) {
-            // $('body').html(xhr.responseText); // Original code
-            alert(xhr.responseText); // We change it to this
+            var contentType = xhr.getResponseHeader("content-type") || "";
+            if (contentType.indexOf('html') > -1) {
+              alert(xhr.responseText); // Changed to use an alert box
+            }
+            if (contentType.indexOf('json') > -1) {
+              alert(xhr.responseJSON.message); // Changed to use an alert box
+            }
             return false;
           };
       EOF

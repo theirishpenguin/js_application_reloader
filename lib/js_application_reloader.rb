@@ -58,7 +58,13 @@ module JsApplicationReloader
   def self.handle_reloader_token_expiration_on_client
     <<-EOF
         JsApplicationReloader.handleTokenExpiration = function(xhr) {
-          $('body').html(xhr.responseText); // Display the HTML returned by xhr.responseText as you see fit
+          var contentType = xhr.getResponseHeader("content-type") || "";
+          if (contentType.indexOf('html') > -1) {
+            $('body').html(xhr.responseText); // Display the HTML returned by xhr.responseText as you see fit
+          }
+          if (contentType.indexOf('json') > -1) {
+            $('body').html(xhr.responseJSON.message); // Display the HTML returned by xhr.responseJSON.message as you see fit
+          }
           return false;
         };
     EOF
