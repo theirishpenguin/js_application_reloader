@@ -16,7 +16,17 @@ module JsApplicationReloader
     # override me in your ApplicationController to customize what gets
     # sent back to the client on token expiration
     def render_js_application_reloader_expiration
-        render :text => "A new version of #{JsApplicationReloader.application_name} is available. Please click <a href='#{JsApplicationReloader.redirect_url}'>here</a> to load it.", :status => JsApplicationReloader.reload_required_http_status
+      message = "A new version of #{JsApplicationReloader.application_name} is available. " +
+            "Please click <a href='#{JsApplicationReloader.redirect_url}'>here</a> to load it."
+
+      respond_to do |format|
+        format.html {
+          render :text => message, :status => JsApplicationReloader.reload_required_http_status
+        }
+        format.json {
+          render :json => {:message => message}, :status => JsApplicationReloader.reload_required_http_status
+        }
+      end
     end
 
   end
